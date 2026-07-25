@@ -1,0 +1,131 @@
+name: Update Hover Translate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish (leave empty to detect it from the website)
+        required: false
+        type: string
+
+concurrency:
+  group: update-hover-translate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: macos-26
+    env:
+      CASK: blips-chizt/tap/hover-translate
+      GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@18fcb8e3e06b4247c676c506750dc95ea7226479 # 2026.07.13.1
+        with:
+          token: ${{ github.token }}
+
+      - name: Verify automation token
+        run: |
+          if [[ -z "$GH_TOKEN" ]]
+          then
+            echo "::error::Add a HOMEBREW_TAP_TOKEN repository secret before running this workflow."
+            exit 1
+          fi
+
+          login="$(gh api user --jq .login)"
+          if [[ "$login" != "blips60" ]]
+          then
+            echo "::error::HOMEBREW_TAP_TOKEN belongs to '$login', not 'blips60'."
+            exit 1
+          fi
+
+      - name: Detect and validate release
+        id: release
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+        run: |
+          livecheck_json="$(brew livecheck --cask --json "$CASK")"
+          current_version="$(jq -r '.[0].version.current' <<<"$livecheck_json")"
+
+          if [[ -n "$VERSION_INPUT" ]]
+          then
+            version="${VERSION_INPUT#v}"
+          else
+            version="$(jq -r '.[0].version.latest' <<<"$livecheck_json")"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+(\.[0-9]+)+$ ]]
+          then
+            echo "::error::Invalid detected version: '$version'."
+            exit 1
+          fi
+
+          if [[ "$version" == "$current_version" ]]
+          then
+            echo "Hover Translate $version is already current." >> "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          url="https://hover-translate.oss-cn-beijing.aliyuncs.com/releases/Hover%20Translate-${version}.dmg"
+          artifact="$RUNNER_TEMP/Hover Translate-${version}.dmg"
+          curl --fail --location --retry 3 --show-error --silent --output "$artifact" "$url"
+          sha256="$(shasum -a 256 "$artifact" | awk '{print $1}')"
+
+          {
+            echo "changed=true"
+            echo "version=$version"
+            echo "sha256=$sha256"
+            echo "url=$url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update and validate cask
+        if: steps.release.outputs.changed == 'true'
+        env:
+          SHA256: ${{ steps.release.outputs.sha256 }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          brew bump-cask-pr \
+            --version="$VERSION" \
+            --sha256="$SHA256" \
+            --write-only \
+            --no-audit \
+            --no-style \
+            "$CASK"
+
+          brew style --fix --cask "$CASK"
+          brew audit --cask "$CASK"
+          git diff --check
+
+      - name: Create pull request and enable auto-merge
+        if: steps.release.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          git config --local user.name "blips60"
+          git config --local user.email "b@ggbond.cc"
+          git config --local commit.gpgsign false
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          gh auth setup-git
+
+          branch="automation/hover-translate-${VERSION}"
+          git switch --create "$branch"
+          git add Casks/hover-translate.rb
+          git commit --message "hover-translate ${VERSION}"
+          git push --set-upstream origin "$branch"
+
+          pr_url="$(
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title "hover-translate ${VERSION}" \
+              --body "Automated update of Hover Translate to version ${VERSION}."
+          )"
+
+          gh pr merge "$pr_url" --auto --squash --delete-branch
+          echo "Created $pr_url and enabled auto-merge." >> "$GITHUB_STEP_SUMMARY"

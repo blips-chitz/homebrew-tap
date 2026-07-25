@@ -6,7 +6,12 @@ cask "hover-translate" do
       verified: "hover-translate.oss-cn-beijing.aliyuncs.com/"
   name "Hover Translate"
   desc "Text translation utility"
-  homepage "https://github.com/blips-chizt"
+  homepage "https://hover-translate.com/"
+
+  livecheck do
+    url :homepage
+    regex(/Hover%20Translate[._-]v?(\d+(?:\.\d+)+)\.dmg/i)
+  end
 
   depends_on macos: :sequoia
 
