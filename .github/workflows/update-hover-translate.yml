@@ -19,7 +19,7 @@ jobs:
   update:
     runs-on: macos-26
     env:
-      CASK: blips-chizt/tap/hover-translate
+      CASK: blips-chitz/tap/hover-translate
       GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
       HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
       HOMEBREW_NO_AUTO_UPDATE: "1"

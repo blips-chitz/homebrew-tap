@@ -1,12 +1,12 @@
-# Blips Chizt Homebrew Tap
+# Blips Chitz Homebrew Tap
 
 Homebrew tap for software published by the
-[blips-chizt](https://github.com/blips-chizt) organization.
+[blips-chitz](https://github.com/blips-chitz) organization.
 
 ## Install Hover Translate
 
 ```sh
-brew install --cask blips-chizt/tap/hover-translate
+brew install --cask blips-chitz/tap/hover-translate
 ```
 
 Hover Translate requires macOS 15.2 or later. The distributed app is a
