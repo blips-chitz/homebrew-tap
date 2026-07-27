@@ -27,7 +27,7 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@df4b09108a1de9d6f995fe68f302b3f68bd6d2ef # 2026.07.20.1
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
       - name: Verify automation token
         run: |
@@ -111,7 +111,6 @@ jobs:
           git config --local user.email "b@ggbond.cc"
           git config --local commit.gpgsign false
           git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
-          gh auth setup-git
 
           branch="automation/hover-translate-${VERSION}"
           git switch --create "$branch"
